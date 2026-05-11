@@ -16,6 +16,8 @@ import org.lwjgl.input.Keyboard;
 
 import java.util.Collection;
 
+import static com.example.examplemod.SidebarHelper.getSidebarLines;
+
 public class LobbyChecker {
     public static  String lobbyName="Not In Game";
     public LobbyChecker() {
@@ -31,9 +33,8 @@ public class LobbyChecker {
             mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(lobbyName));
         }
         if(Keyboard.isKeyDown(Keyboard.KEY_H)){
-            for (String s:scoreboard.getObjectiveNames()){
-                ScoreObjective so=scoreboard.getObjective(s);
-                mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(so.getDisplayName()));
+            for (String s:getSidebarLines()){
+                mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(s));
             }
         }
     }
