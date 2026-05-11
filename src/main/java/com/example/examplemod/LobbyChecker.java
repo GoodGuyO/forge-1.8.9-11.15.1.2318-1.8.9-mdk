@@ -25,8 +25,14 @@ public class LobbyChecker {
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player=mc.thePlayer;
         World world=mc.theWorld;
+        Scoreboard scoreboard=world.getScoreboard();
         if(Keyboard.isKeyDown(Keyboard.KEY_G)){
-            mc.ingameGUI.getChatGUI().printChatMessage(ChatComponentText.);
+            mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(lobbyName));
+        }
+        if(Keyboard.isKeyDown(Keyboard.KEY_H)){
+            for (String s:scoreboard.getObjectiveNames()){
+                mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(s));
+            }
         }
     }
     @SubscribeEvent
@@ -46,9 +52,6 @@ public class LobbyChecker {
         if(strings.isEmpty()){
             lobbyName="Vanilla";
             return;
-        }
-        for (String s:scoreboard.getObjectiveNames()){
-            System.out.println(s);
         }
     }
 }
