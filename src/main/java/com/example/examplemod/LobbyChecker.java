@@ -2,6 +2,7 @@ package com.example.examplemod;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.World;
@@ -31,7 +32,8 @@ public class LobbyChecker {
         }
         if(Keyboard.isKeyDown(Keyboard.KEY_H)){
             for (String s:scoreboard.getObjectiveNames()){
-                mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(s));
+                ScoreObjective so=scoreboard.getObjective(s);
+                mc.ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(so.getDisplayName()));
             }
         }
     }
