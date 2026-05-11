@@ -59,7 +59,7 @@ public class LobbyChecker {
             return;
         }
         String sidebarTitle=getSidebarTitlePlain();
-        if(sidebarTitle.startsWith("THE HYPIXEL PIT"))){
+        if(sidebarTitle.startsWith("THE HYPIXEL PIT")){
             lobbyName="HYPIXEL PIT";
             return;
         }
