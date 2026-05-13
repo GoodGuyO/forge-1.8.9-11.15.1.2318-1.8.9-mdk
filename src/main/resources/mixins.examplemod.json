@@ -5,7 +5,8 @@
   "refmap": "mixins.examplemod.refmap.json",
   "compatibilityLevel": "JAVA_8",
   "client": [
-    "MixinEntityPlayerSP"
+    "MixinEntityPlayerSP",
+    "MixinMinecraft"
   ],
   "injectors": {
     "defaultRequire": 1
