@@ -33,7 +33,7 @@ public class MixinEntityPlayerSP {
     public void onMessage(String message, CallbackInfo ci){
         if(message.contains("goto")){
             AutoWalker.autoWalker.startWalking(parseToBlockPos(message));
-            Minecraft.getMinecraft().ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(PathFinder.findPath(Minecraft.getMinecraft().theWorld, Minecraft.getMinecraft().thePlayer.getPosition().down(), Minecraft.getMinecraft().objectMouseOver.getBlockPos()).toString()));
+            //Minecraft.getMinecraft().ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(PathFinder.findPath(Minecraft.getMinecraft().theWorld, Minecraft.getMinecraft().thePlayer.getPosition().down(), Minecraft.getMinecraft().objectMouseOver.getBlockPos()).toString()));
             ci.cancel();
         }else if(message.contains("stop")){
             AutoWalker.autoWalker.stopWalking();

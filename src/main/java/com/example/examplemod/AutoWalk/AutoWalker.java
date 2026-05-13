@@ -15,6 +15,7 @@ public class AutoWalker {
     public static AutoWalker autoWalker=null;
     boolean isWalking=false;
     boolean needsJump=false;
+    LinkedList<BlockPos> currentPath=null;
     public BlockPos target=null;
     public AutoWalker(){
         MinecraftForge.EVENT_BUS.register(this);
@@ -23,11 +24,13 @@ public class AutoWalker {
         isWalking=true;
         target=targetIn;
         Minecraft.getMinecraft().thePlayer.movementInput=new ModMovementInput(this);
+        currentPath=PathFinder.findPath(Minecraft.getMinecraft().theWorld, Minecraft.getMinecraft().thePlayer.getPosition().down(), target);
     }
     public void stopWalking(){
         isWalking=false;
         target=null;
         Minecraft.getMinecraft().thePlayer.movementInput=new MovementInputFromOptions(Minecraft.getMinecraft().gameSettings);
+        currentPath=null;
     }
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent e){
@@ -44,16 +47,15 @@ public class AutoWalker {
         }
 
         BlockPos blockpos = new BlockPos(mc.getRenderViewEntity().posX, mc.getRenderViewEntity().getEntityBoundingBox().minY, mc.getRenderViewEntity().posZ);
-        LinkedList<BlockPos> path=PathFinder.findPath(mc.theWorld, blockpos.down(), target);
-        if(!path.isEmpty()){
+        if(!currentPath.contains(blockpos)){
+            PathFinder.findPath(mc.theWorld, blockpos, target);
+        }
+        if(!currentPath.isEmpty()&&currentPath.getLast()!=blockpos){
+            BlockPos next=currentPath.get(currentPath.indexOf(blockpos)+1);
             //转向下一个方块
-            player.rotationYaw=getYawRotToBLockPos(player, path.getFirst());
+            player.rotationYaw=getYawRotToBLockPos(player, next);
 
-            if(path.getFirst().getY()>blockpos.down().getY()){
-                needsJump=true;
-            }else{
-                needsJump=false;
-            }
+            needsJump= next.getY() > blockpos.getY();
         }
     }
     //返回实体看向方块所需的横向角度,这个函数是ai写的
