@@ -13,125 +13,172 @@ public class PathFinder {
         MinecraftForge.EVENT_BUS.register(this);
     }
     public static LinkedList<BlockPos> findPath(World world, BlockPos start, BlockPos end) {
-        LinkedList<PathNode> path = new LinkedList<>();
-        HashSet<BlockPos> visitedPos=new HashSet<>();
-        path.add(new PathNode(start, 0, getHeuristic(start, end)));
-        BlockPos current=start;
-        int maxIterations = 100; // 防止死循环的最大迭代次数
+        // 使用优先级队列实现标准 A* 算法
+        PriorityQueue<PathNode> openList = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fCost));
+        HashMap<BlockPos, PathNode> allNodes = new HashMap<>();
+        HashSet<BlockPos> closedSet = new HashSet<>();
+
+        // 创建起始节点
+        PathNode startNode = new PathNode(start, 0, getHeuristic(start, end));
+        openList.add(startNode);
+        allNodes.put(start, startNode);
+
+        int maxIterations = 1000; // 增加最大迭代次数
         int iterations = 0;
-        while(!current.equals(end) && iterations < maxIterations){
+
+        while (!openList.isEmpty() && iterations < maxIterations) {
             iterations++;
-            visitedPos.add(current);
-            HashSet<BlockPos> neighbors=getNeighbors(world, current);
-            neighbors=neighbors.stream()
-                    .filter(blockPos -> {
-                        for (BlockPos pos : visitedPos) {
-                            if(blockPos.equals(pos)){
-                                return false;
-                            }
-                         }
-                        return true;
-                    })
-                    .collect(Collectors.toCollection(HashSet::new));
-            if(neighbors.isEmpty()){
-                path.removeLast();
-                if(path.isEmpty()){
-                    break;
-                }
-                current=path.getLast().pos;
-                continue;
+
+            // 取出 fCost 最小的节点
+            PathNode current = openList.poll();
+
+            // 到达终点
+            if (current.pos.equals(end)) {
+                return reconstructPath(current);
             }
-            BlockPos next= neighbors.stream().min(Comparator.comparingDouble(pos -> )).get();
-            path.add(new PathNode(next, ));
-            current=next;
+
+            closedSet.add(current.pos);
+
+            // 获取邻居节点
+            HashSet<BlockPos> neighbors = getNeighbors(world, current.pos);
+
+            for (BlockPos neighborPos : neighbors) {
+                if (closedSet.contains(neighborPos)) {
+                    continue;
+                }
+
+                // 计算从起点经过当前节点到邻居的代价
+                double tentativeGCost = current.gCost + getMovementCost(current.pos, neighborPos);
+
+                PathNode neighborNode = allNodes.get(neighborPos);
+                boolean isNewPath = false;
+
+                if (neighborNode == null) {
+                    // 新节点
+                    neighborNode = new PathNode(neighborPos, Double.MAX_VALUE, getHeuristic(neighborPos, end));
+                    allNodes.put(neighborPos, neighborNode);
+                    isNewPath = true;
+                } else if (tentativeGCost < neighborNode.gCost) {
+                    // 找到更好的路径
+                    isNewPath = true;
+                }
+
+                if (isNewPath) {
+                    neighborNode.gCost = tentativeGCost;
+                    neighborNode.fCost = tentativeGCost + neighborNode.hCost;
+                    neighborNode.parent = current;
+
+                    if (!openList.contains(neighborNode)) {
+                        openList.add(neighborNode);
+                    }
+                }
+            }
         }
 
-        return recConstructionPath(path);
+        // 没有找到路径
+        return new LinkedList<>();
     }
     public static HashSet<BlockPos> getNeighbors(World world, BlockPos pos){
-        HashSet<BlockPos> ret=new HashSet<>();
-        if(isStandable(world, pos.up())){
-            BlockPos up=pos.up();
-            //平面
-            if (isStandable(world, up.east())) {
-                ret.add(up.east());
-                ret.add(up.east().north());
-                ret.add(up.east().south());
+        HashSet<BlockPos> ret = new HashSet<>();
+
+        // 四个基本方向（东西南北）
+        BlockPos[] directions = {
+                pos.east(), pos.west(), pos.north(), pos.south()
+        };
+
+        // 四个对角线方向（东北、西北、东南、西南）
+        BlockPos[] diagonals = {
+                pos.east().north(), pos.east().south(),
+                pos.west().north(), pos.west().south()
+        };
+
+        // 处理基本方向
+        for (BlockPos neighbor : directions) {
+            // 检查同一高度是否可行走（需要有支撑）
+            if (isWalkable(world, neighbor)) {
+                ret.add(neighbor);
             }
-            if (isStandable(world, up.west())) {
-                ret.add(up.west());
-                ret.add(up.west().north());
-                ret.add(up.west().south());
+
+            // 检查是否可以向上移动（向上一格）
+            if (isWalkable(world, neighbor.up()) && isStandable(world, pos.up())) {
+                ret.add(neighbor.up());
             }
-            if (isStandable(world, up.north())) {
-                ret.add(up.north());
-                ret.add(up.north().west());
-                ret.add(up.north().east());
-            }
-            if (isStandable(world, up.south())) {
-                ret.add(up.south());
-                ret.add(up.south().west());
-                ret.add(up.south().east());
+
+            // 检查是否可以向下移动（向下一格）
+            if (isStandable(world, neighbor.down())) {
+                ret.add(neighbor.down());
             }
         }
-        //平面
-        if (isStandable(world, pos.east())) {
-            ret.add(pos.east());
-            ret.add(pos.east().north());
-            ret.add(pos.east().south());
 
-            ret.add(pos.east().down());
-            ret.add(pos.east().north().down());
-            ret.add(pos.east().south().down());
+        // 处理对角线方向
+        for (BlockPos diagonal : diagonals) {
+            // 对角线移动需要检查两个相邻的基本方向是否都可行走
+            BlockPos adj1 = null;
+            BlockPos adj2 = null;
 
-            ret.add(pos.east().down(2));
-            ret.add(pos.east().north().down(2));
-            ret.add(pos.east().south().down(2));
+            // 确定对角线的两个相邻基本方向
+            if (diagonal.equals(pos.east().north())) {
+                adj1 = pos.east();
+                adj2 = pos.north();
+            } else if (diagonal.equals(pos.east().south())) {
+                adj1 = pos.east();
+                adj2 = pos.south();
+            } else if (diagonal.equals(pos.west().north())) {
+                adj1 = pos.west();
+                adj2 = pos.north();
+            } else if (diagonal.equals(pos.west().south())) {
+                adj1 = pos.west();
+                adj2 = pos.south();
+            }
+
+            // 只有当两个相邻方向都可行走时，才允许对角线移动
+            if (adj1 != null && adj2 != null &&
+                    isWalkable(world, adj1) && isWalkable(world, adj2) &&
+                    isWalkable(world, diagonal)) {
+                ret.add(diagonal);
+
+                // 对角线也可以向上移动
+                if (isWalkable(world, diagonal.up()) && isStandable(world, pos.up())) {
+                    ret.add(diagonal.up());
+                }
+                // 对角线也可以向下移动
+                if (isStandable(world, diagonal.down())) {
+                    ret.add(diagonal.down());
+                }
+            }
         }
-        if (isStandable(world, pos.west())) {
-            ret.add(pos.west());
-            ret.add(pos.west().north());
-            ret.add(pos.west().south());
 
-            ret.add(pos.west().down());
-            ret.add(pos.west().north().down());
-            ret.add(pos.west().south().down());
-
-            ret.add(pos.west().down(2));
-            ret.add(pos.west().north().down(2));
-            ret.add(pos.west().south().down(2));
-        }
-        if (isStandable(world, pos.north())) {
-            ret.add(pos.north());
-            ret.add(pos.north().west());
-            ret.add(pos.north().east());
-
-            ret.add(pos.north().down());
-            ret.add(pos.north().west().down());
-            ret.add(pos.north().east().down());
-
-            ret.add(pos.north().down(2));
-            ret.add(pos.north().west().down(2));
-            ret.add(pos.north().east().down(2));
-        }
-        if (isStandable(world, pos.south())) {
-            ret.add(pos.south());
-            ret.add(pos.south().west());
-            ret.add(pos.south().east());
-
-            ret.add(pos.south().down());
-            ret.add(pos.south().west().down());
-            ret.add(pos.south().east().down());
-
-            ret.add(pos.south().down(2));
-            ret.add(pos.south().west().down(2));
-            ret.add(pos.south().east().down(2));
-        }
         return ret;
     }
+    /**
+     * 检查位置是否可以站立（需要有2格高空间）
+     */
     public static boolean isStandable(World world, BlockPos pos){
-        return world.getBlockState(pos).getBlock()== Blocks.air
-                && world.getBlockState(pos.up()).getBlock()== Blocks.air;
+        // 检查当前位置是否为空气
+        if (world.getBlockState(pos).getBlock() != Blocks.air) {
+            return false;
+        }
+
+        // 检查上方是否为空气（玩家需要2格高的空间）
+        if (world.getBlockState(pos.up()).getBlock() != Blocks.air) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 检查位置是否可行走（isStandable + 下方有支撑方块）
+     */
+    public static boolean isWalkable(World world, BlockPos pos){
+        // 首先检查是否有足够的站立空间
+        if (!isStandable(world, pos)) {
+            return false;
+        }
+
+        // 检查下方是否有实体方块支撑
+        BlockPos below = pos.down();
+        return world.getBlockState(below).getBlock().isNormalCube();
     }
     /**
      * 启发式函数：曼哈顿距离（适用于网格移动）,ai生成
@@ -143,12 +190,42 @@ public class PathFinder {
         // 给予垂直移动更高的代价，让算法优先水平移动
         return dx + dz + dy * 1.5;
     }
-    public static LinkedList<BlockPos> recConstructionPath(LinkedList<PathNode> path){
-        LinkedList<BlockPos> ret=new LinkedList<>();
-        for (PathNode node:path){
-            ret.add(node.pos);
+    /**
+     * 移动代价：计算从一个方块移动到另一个方块的代价
+     */
+    public static double getMovementCost(BlockPos from, BlockPos to) {
+        int dx = Math.abs(from.getX() - to.getX());
+        int dz = Math.abs(from.getZ() - to.getZ());
+
+        double baseCost;
+        // 对角线移动（dx=1 且 dz=1）的代价是 √2 ≈ 1.414
+        if (dx == 1 && dz == 1) {
+            baseCost = 1.414;
+        } else {
+            // 直线移动代价为 1.0
+            baseCost = 1.0;
         }
-        return ret;
+
+        // 垂直移动额外增加代价
+        if (from.getY() != to.getY()) {
+            baseCost += 0.5;
+        }
+
+        return baseCost;
+    }
+    /**
+     * 重建路径：从终点回溯到起点
+     */
+    public static LinkedList<BlockPos> reconstructPath(PathNode endNode) {
+        LinkedList<BlockPos> path = new LinkedList<>();
+        PathNode current = endNode;
+
+        while (current != null) {
+            path.addFirst(current.pos);
+            current = current.parent;
+        }
+
+        return path;
     }
     public static class PathNode {
         BlockPos pos;
@@ -177,17 +254,5 @@ public class PathFinder {
         public int hashCode() {
             return pos.hashCode();
         }
-    }
-    /**
-     * 计算两个 BlockPos 之间的横向距离（XZ平面距离，忽略Y轴）,ai生成
-     *
-     * @param pos1 第一个方块位置
-     * @param pos2 第二个方块位置
-     * @return 两个位置之间的横向距离
-     */
-    public static double getHorizontalDistance(BlockPos pos1, BlockPos pos2) {
-        double deltaX = pos2.getX() - pos1.getX();
-        double deltaZ = pos2.getZ() - pos1.getZ();
-        return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
     }
 }

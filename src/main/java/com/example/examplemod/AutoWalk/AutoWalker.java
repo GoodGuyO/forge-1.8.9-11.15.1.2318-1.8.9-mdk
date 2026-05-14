@@ -47,15 +47,32 @@ public class AutoWalker {
         }
 
         BlockPos blockpos = new BlockPos(mc.getRenderViewEntity().posX, mc.getRenderViewEntity().getEntityBoundingBox().minY, mc.getRenderViewEntity().posZ);
-        if(!currentPath.contains(blockpos)){
-            currentPath=PathFinder.findPath(mc.theWorld, blockpos, target);
-        }
-        if(!currentPath.isEmpty()&&currentPath.getLast()!=blockpos){
-            BlockPos next=currentPath.get(currentPath.indexOf(blockpos)+1);
-            //转向下一个方块
-            player.rotationYaw=getYawRotToBLockPos(player, next);
 
-            needsJump= next.getY() > blockpos.getY();
+        // 如果到达目标，停止行走
+        if (blockpos.equals(target)) {
+            stopWalking();
+            return;
+        }
+
+        // 如果当前路径不包含当前位置或路径为空，重新计算路径
+        if (currentPath == null || currentPath.isEmpty() || !currentPath.contains(blockpos)) {
+            currentPath = PathFinder.findPath(mc.theWorld, blockpos, target);
+            if (currentPath == null || currentPath.isEmpty()) {
+                // 无法找到路径，停止行走
+                stopWalking();
+                return;
+            }
+        }
+
+        // 获取下一个目标方块
+        int currentIndex = currentPath.indexOf(blockpos);
+        if (currentIndex >= 0 && currentIndex < currentPath.size() - 1) {
+            BlockPos next = currentPath.get(currentIndex + 1);
+            // 转向下一个方块
+            player.rotationYaw = getYawRotToBLockPos(player, next);
+
+            // 判断是否需要跳跃（下一个方块比当前高）
+            needsJump = next.getY() > blockpos.getY();
         }
     }
     //返回实体看向方块所需的横向角度,这个函数是ai写的
