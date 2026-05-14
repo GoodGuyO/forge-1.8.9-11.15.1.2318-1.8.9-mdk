@@ -1,12 +1,11 @@
 package com.example.examplemod.mixins;
 
 import com.example.examplemod.AutoWalk.AutoWalker;
-import com.example.examplemod.AutoWalk.PathFinder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.MovingObjectPosition;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -33,13 +32,72 @@ public class MixinEntityPlayerSP {
     public void onMessage(String message, CallbackInfo ci){
         if(message.contains("goto")){
             AutoWalker.autoWalker.startWalking(parseToBlockPos(message));
-            //Minecraft.getMinecraft().ingameGUI.getChatGUI().printChatMessage(new ChatComponentText(PathFinder.findPath(Minecraft.getMinecraft().theWorld, Minecraft.getMinecraft().thePlayer.getPosition().down(), Minecraft.getMinecraft().objectMouseOver.getBlockPos()).toString()));
+            Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§a开始寻路到目标位置"));
             ci.cancel();
         }else if(message.contains("stop")){
             AutoWalker.autoWalker.stopWalking();
+            AutoWalker.autoWalker.stopFollowing();
+            Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§c已停止移动"));
+            ci.cancel();
+        }else if(message.contains("follow")){
+            String playerName = extractPlayerName(message);
+            if(playerName != null && !playerName.isEmpty()){
+                EntityPlayer targetPlayer = findPlayerByName(playerName);
+                if(targetPlayer != null){
+                    AutoWalker.autoWalker.startFollowing(targetPlayer);
+                    Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§a开始追随玩家: " + targetPlayer.getName()));
+                }else{
+                    Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§c未找到玩家: " + playerName));
+                }
+            }else{
+                Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§c用法: follow <玩家名> 或 follow stop"));
+            }
             ci.cancel();
         }
     }
+    // 从消息中提取玩家名字
+    private String extractPlayerName(String message){
+        if(message == null || message.isEmpty()){
+            return null;
+        }
+
+        // 查找 "follow" 关键字
+        int followIndex = message.indexOf("follow");
+        if(followIndex == -1){
+            return null;
+        }
+
+        // 提取 "follow" 后面的内容
+        String afterFollow = message.substring(followIndex + 6).trim();
+
+        // 如果是 "stop" 命令
+        if(afterFollow.equalsIgnoreCase("stop") || afterFollow.equalsIgnoreCase("off")){
+            AutoWalker.autoWalker.stopFollowing();
+            Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("§c已停止追随"));
+            return null;
+        }
+
+        return afterFollow;
+    }
+
+    // 根据名字查找玩家
+    private EntityPlayer findPlayerByName(String name){
+        if(name == null || name.isEmpty()){
+            return null;
+        }
+
+        // 在所有加载的实体中查找玩家
+        for(Object entity : Minecraft.getMinecraft().theWorld.loadedEntityList){
+            if(entity instanceof EntityPlayer){
+                EntityPlayer player = (EntityPlayer) entity;
+                if(player.getName().equalsIgnoreCase(name)){
+                    return player;
+                }
+            }
+        }
+        return null;
+    }
+
     //字符串转换是ai写的
     private final Pattern COORDINATE_PATTERN = Pattern.compile(
             "(-?\\d+\\.?\\d*)\\s+(-?\\d+\\.?\\d*)\\s+(-?\\d+\\.?\\d*)"
