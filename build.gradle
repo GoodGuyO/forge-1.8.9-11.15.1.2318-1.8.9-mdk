@@ -126,30 +126,23 @@ processResources {
     rename '(.+_at.cfg)', 'META-INF/$1'
 }
 
-// This is the configuration for the shadow plugin, which is used to add libraries to the jar.
-shadowJar {
-    dependencies {}
-    configurations = [project.configurations.shade] // Adds the gradle configuration "shade" so we can use it.
-    duplicatesStrategy DuplicatesStrategy.EXCLUDE // Prevents duplicates
-    classifier ""
-}
-
-/**
- * Adds the manifest values
- * FMLCorePlugin -> Put the Mixin Loader here
- * ModSide -> Client or Server
- * TweakClass -> Mixin tweaker
- * MixinConfigs -> Put your mixin config here (mixins.MODID.json)
- */
-//TODO: Change the FMLCorePlugin to the mixin loader with your own package
-//TODO: Add your own MixinConfig(s)
+// Configure the main jar task to include shaded dependencies
 jar {
+    from {
+        configurations.shade.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    // Exclude signature files to avoid SecurityException
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+
     manifest.attributes(
             "FMLCorePlugin" : "com.example.examplemod.mixins.MixinLoader",
-            "ForceLoadAsMod": true,//true,
+            "ForceLoadAsMod": true,
             "TweakOrder": 0,
             "ModSide": "CLIENT",
-            'FMLCorePluginContainsFMLMod': true,//true,
+            'FMLCorePluginContainsFMLMod': true,
             'TweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
             'MixinConfigs': 'mixins.examplemod.json'
     )
@@ -164,31 +157,27 @@ sourceSets {
     }
 }
 
-// 禁用所有 reobf 相关任务
+// Configure reobfJar to include shaded dependencies
 afterEvaluate {
     if (tasks.findByName('reobfJar')) {
-        tasks.getByName('reobfJar').enabled = false
-    }
-    if (tasks.findByName('extractDependencyATs')) {
-        tasks.getByName('extractDependencyATs').enabled = false
+        // Make reobfJar depend on jar to ensure shaded dependencies are included
+        tasks.getByName('reobfJar').dependsOn 'jar'
     }
 }
 
 //TODO: (Optional) Change the path to your instance
-task buildAndCopyToMods(type: Copy, dependsOn: 'shadowJar') {
+task buildAndCopyToMods(type: Copy, dependsOn: 'reobfJar') {
     from "build/libs"
     into "<yourRealInstance>/.minecraft/mods"
     include "*.jar"
-    exclude '*-deobf.jar'
     exclude '*-sources.jar'
 }
 
 // Task that will build the mod and put it in the "run" folder, and then run the client.
-task buildCopyToRunModsAndRun(type: Copy, dependsOn: 'shadowJar') {
+task buildCopyToRunModsAndRun(type: Copy, dependsOn: 'reobfJar') {
     from "build/libs"
     into "run/mods"
     include "examplemod-*.jar"
-    exclude '*-deobf.jar'
     exclude '*-sources.jar'
 }
 buildCopyToRunModsAndRun.finalizedBy runClient
