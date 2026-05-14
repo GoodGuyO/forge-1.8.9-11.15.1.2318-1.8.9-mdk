@@ -15,138 +15,133 @@ public class PathFinder {
     public static LinkedList<BlockPos> findPath(World world, BlockPos start, BlockPos end) {
         LinkedList<PathNode> path = new LinkedList<>();
         HashSet<BlockPos> visitedPos=new HashSet<>();
-        path.add(new PathNode(start, 0, 0, getCost(start, end)));
+        path.add(new PathNode(start, 0, getHeuristic(start, end)));
         BlockPos current=start;
-        while(!current.equals(end)){
+        int maxIterations = 100; // 防止死循环的最大迭代次数
+        int iterations = 0;
+        while(!current.equals(end) && iterations < maxIterations){
+            iterations++;
             visitedPos.add(current);
-            HashSet<BlockPos> neighbors=getNeighbors(current);
-            BlockPos finalCurrent = current;
+            HashSet<BlockPos> neighbors=getNeighbors(world, current);
             neighbors=neighbors.stream()
-                    .filter(blockPos -> canReachBlock(world, finalCurrent, blockPos))
-                    .filter(blockPos -> !visitedPos.contains(blockPos))
+                    .filter(blockPos -> {
+                        for (BlockPos pos : visitedPos) {
+                            if(blockPos.equals(pos)){
+                                return false;
+                            }
+                         }
+                        return true;
+                    })
                     .collect(Collectors.toCollection(HashSet::new));
             if(neighbors.isEmpty()){
+                path.removeLast();
                 if(path.isEmpty()){
                     break;
                 }
-                visitedPos.remove(path.getLast().pos);
-                path.removeLast();
                 current=path.getLast().pos;
                 continue;
             }
-            BlockPos next= neighbors.stream().min(Comparator.comparingDouble(pos -> pos.distanceSq(end))).get();
-            path.add(new PathNode(next, getCost(start, next),getCost(current, next), getCost(next, end)));
+            BlockPos next= neighbors.stream().min(Comparator.comparingDouble(pos -> )).get();
+            path.add(new PathNode(next, ));
             current=next;
         }
 
         return recConstructionPath(path);
     }
-    public static boolean canReachBlock(World world, BlockPos start, BlockPos near){
-        if(world.getBlockState(near).getBlock()!= Blocks.air
-                ||world.getBlockState(near.up()).getBlock()!= Blocks.air){
-            return false;
-        }
-        if(start.getY()==near.getY()){
-            if(start.distanceSq(near)>1.2){
-                //对角线方块
-                int[] sub ={near.getX()-start.getX(), near.getZ()-start.getZ()};
-                BlockPos xSub=new BlockPos(start.getX()+sub[0], start.getY(), start.getZ());
-                BlockPos zSub=new BlockPos(start.getX(), start.getY(), start.getZ()+sub[1]);
-                if(world.getBlockState(xSub).getBlock()==Blocks.air
-                        && world.getBlockState(xSub.up()).getBlock()==Blocks.air){
-                    return true;
-                }
-                return world.getBlockState(zSub).getBlock() == Blocks.air
-                        && world.getBlockState(zSub.up()).getBlock() == Blocks.air;
-            }else{
-                return world.getBlockState(near).getBlock() == Blocks.air
-                        && world.getBlockState(near.up()).getBlock() == Blocks.air;
+    public static HashSet<BlockPos> getNeighbors(World world, BlockPos pos){
+        HashSet<BlockPos> ret=new HashSet<>();
+        if(isStandable(world, pos.up())){
+            BlockPos up=pos.up();
+            //平面
+            if (isStandable(world, up.east())) {
+                ret.add(up.east());
+                ret.add(up.east().north());
+                ret.add(up.east().south());
             }
-        }else{
-            if(start.getY()<near.getY()){
-                if(world.getBlockState(start.up()).getBlock()!=Blocks.air){
-                    return false;
-                }
+            if (isStandable(world, up.west())) {
+                ret.add(up.west());
+                ret.add(up.west().north());
+                ret.add(up.west().south());
+            }
+            if (isStandable(world, up.north())) {
+                ret.add(up.north());
+                ret.add(up.north().west());
+                ret.add(up.north().east());
+            }
+            if (isStandable(world, up.south())) {
+                ret.add(up.south());
+                ret.add(up.south().west());
+                ret.add(up.south().east());
+            }
+        }
+        //平面
+        if (isStandable(world, pos.east())) {
+            ret.add(pos.east());
+            ret.add(pos.east().north());
+            ret.add(pos.east().south());
 
-                if(getHorizontalDistance(start, near)>1.2){
-                    //对角线方块的上方一格
-                    if(world.getBlockState(near).getBlock()!=Blocks.air
-                    ||world.getBlockState(near.up()).getBlock()!=Blocks.air){
-                        return false;
-                    }
-                    int[] sub ={near.getX()-start.getX(), near.getZ()-start.getZ()};
-                    BlockPos xSub=new BlockPos(start.getX()+sub[0], start.getY()+1, start.getZ());
-                    BlockPos zSub=new BlockPos(start.getX(), start.getY()+1, start.getZ()+sub[1]);
-                    if(world.getBlockState(xSub).getBlock()==Blocks.air
-                            && world.getBlockState(xSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    if(world.getBlockState(zSub).getBlock()==Blocks.air
-                            && world.getBlockState(zSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    return world.getBlockState(near).getBlock() == Blocks.air
-                            && world.getBlockState(near.up()).getBlock() == Blocks.air;
-                }else{
-                    return world.getBlockState(near).getBlock() == Blocks.air
-                            && world.getBlockState(near.up()).getBlock() == Blocks.air;
-                }
-            }else{
-                //低于两格以内的
-                if(getHorizontalDistance(start, near)>1.2){
-                    int[] sub ={near.getX()-start.getX(), near.getZ()-start.getZ()};
-                    BlockPos xSub=new BlockPos(start.getX()+sub[0], start.getY(), start.getZ());
-                    BlockPos zSub=new BlockPos(start.getX(), start.getY(), start.getZ()+sub[1]);
-                    if(world.getBlockState(xSub).getBlock()==Blocks.air
-                            && world.getBlockState(xSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    if(world.getBlockState(zSub).getBlock()==Blocks.air
-                            && world.getBlockState(zSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    return world.getBlockState(near).getBlock() == Blocks.air
-                            && world.getBlockState(near.up()).getBlock() == Blocks.air;
-                }else{
-                    int[] sub ={near.getX()-start.getX(), near.getZ()-start.getZ()};
-                    BlockPos xSub=new BlockPos(start.getX()+sub[0], start.getY(), start.getZ());
-                    BlockPos zSub=new BlockPos(start.getX(), start.getY(), start.getZ()+sub[1]);
-                    if(world.getBlockState(xSub).getBlock()==Blocks.air
-                            && world.getBlockState(xSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    if(world.getBlockState(zSub).getBlock()==Blocks.air
-                            && world.getBlockState(zSub.up()).getBlock()==Blocks.air){
-                        return true;
-                    }
-                    return world.getBlockState(near).getBlock() == Blocks.air
-                            && world.getBlockState(near.up()).getBlock() == Blocks.air;
-                }
-            }
+            ret.add(pos.east().down());
+            ret.add(pos.east().north().down());
+            ret.add(pos.east().south().down());
+
+            ret.add(pos.east().down(2));
+            ret.add(pos.east().north().down(2));
+            ret.add(pos.east().south().down(2));
         }
-    }
-    public static HashSet<BlockPos> getNeighbors(BlockPos pos){
-        HashSet<BlockPos> ret=new HashSet<>();
-        ret.addAll(getYawNeighbors(pos.up(1)));
-        ret.addAll(getYawNeighbors(pos));
-        ret.addAll(getYawNeighbors(pos.down(1)));
-        ret.addAll(getYawNeighbors(pos.down(2)));
+        if (isStandable(world, pos.west())) {
+            ret.add(pos.west());
+            ret.add(pos.west().north());
+            ret.add(pos.west().south());
+
+            ret.add(pos.west().down());
+            ret.add(pos.west().north().down());
+            ret.add(pos.west().south().down());
+
+            ret.add(pos.west().down(2));
+            ret.add(pos.west().north().down(2));
+            ret.add(pos.west().south().down(2));
+        }
+        if (isStandable(world, pos.north())) {
+            ret.add(pos.north());
+            ret.add(pos.north().west());
+            ret.add(pos.north().east());
+
+            ret.add(pos.north().down());
+            ret.add(pos.north().west().down());
+            ret.add(pos.north().east().down());
+
+            ret.add(pos.north().down(2));
+            ret.add(pos.north().west().down(2));
+            ret.add(pos.north().east().down(2));
+        }
+        if (isStandable(world, pos.south())) {
+            ret.add(pos.south());
+            ret.add(pos.south().west());
+            ret.add(pos.south().east());
+
+            ret.add(pos.south().down());
+            ret.add(pos.south().west().down());
+            ret.add(pos.south().east().down());
+
+            ret.add(pos.south().down(2));
+            ret.add(pos.south().west().down(2));
+            ret.add(pos.south().east().down(2));
+        }
         return ret;
     }
-    public static HashSet<BlockPos> getYawNeighbors(BlockPos pos){
-        HashSet<BlockPos> ret=new HashSet<>();
-        ret.add(pos.east());
-        ret.add(pos.west());
-        ret.add(pos.north());
-        ret.add(pos.south());
-        ret.add(pos.east().north());
-        ret.add(pos.east().south());
-        ret.add(pos.west().north());
-        ret.add(pos.west().south());
-        return ret;
+    public static boolean isStandable(World world, BlockPos pos){
+        return world.getBlockState(pos).getBlock()== Blocks.air
+                && world.getBlockState(pos.up()).getBlock()== Blocks.air;
     }
-    public static float getCost(BlockPos current, BlockPos end){
-        return (float) current.distanceSq(end);
+    /**
+     * 启发式函数：曼哈顿距离（适用于网格移动）,ai生成
+     */
+    public static double getHeuristic(BlockPos current, BlockPos end) {
+        int dx = Math.abs(current.getX() - end.getX());
+        int dy = Math.abs(current.getY() - end.getY());
+        int dz = Math.abs(current.getZ() - end.getZ());
+        // 给予垂直移动更高的代价，让算法优先水平移动
+        return dx + dz + dy * 1.5;
     }
     public static LinkedList<BlockPos> recConstructionPath(LinkedList<PathNode> path){
         LinkedList<BlockPos> ret=new LinkedList<>();
@@ -155,14 +150,32 @@ public class PathFinder {
         }
         return ret;
     }
-    public static class PathNode{
+    public static class PathNode {
         BlockPos pos;
-        float fCost, cost, endCost;
-        public PathNode(BlockPos pos,float fCost, float cost, float endCost){
-            this.pos=pos;
-            this.cost=cost;
-            this.endCost=endCost;
-            this.fCost=fCost;
+        double gCost;  // 从起点到当前节点的实际代价
+        double hCost;  // 从当前节点到终点的启发式估计代价
+        double fCost;  // gCost + hCost
+        PathNode parent;  // 父节点，用于重建路径
+
+        public PathNode(BlockPos pos, double gCost, double hCost) {
+            this.pos = pos;
+            this.gCost = gCost;
+            this.hCost = hCost;
+            this.fCost = gCost + hCost;
+            this.parent = null;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            PathNode pathNode = (PathNode) obj;
+            return pos.equals(pathNode.pos);
+        }
+
+        @Override
+        public int hashCode() {
+            return pos.hashCode();
         }
     }
     /**

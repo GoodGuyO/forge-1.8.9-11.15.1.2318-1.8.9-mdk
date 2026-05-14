@@ -48,7 +48,7 @@ public class AutoWalker {
 
         BlockPos blockpos = new BlockPos(mc.getRenderViewEntity().posX, mc.getRenderViewEntity().getEntityBoundingBox().minY, mc.getRenderViewEntity().posZ);
         if(!currentPath.contains(blockpos)){
-            PathFinder.findPath(mc.theWorld, blockpos, target);
+            currentPath=PathFinder.findPath(mc.theWorld, blockpos, target);
         }
         if(!currentPath.isEmpty()&&currentPath.getLast()!=blockpos){
             BlockPos next=currentPath.get(currentPath.indexOf(blockpos)+1);
