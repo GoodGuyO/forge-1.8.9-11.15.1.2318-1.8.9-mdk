@@ -23,7 +23,7 @@ public class AutoWalker {
     boolean isFollowing=false;
     EntityPlayer targetPlayer=null;
     private int followUpdateCounter=0;
-    private static final int FOLLOW_UPDATE_INTERVAL=10; // 每10tick更新一次路径
+    private static final int FOLLOW_UPDATE_INTERVAL=0; // 每10tick更新一次路径
 
     public AutoWalker(){
         MinecraftForge.EVENT_BUS.register(this);
@@ -68,6 +68,10 @@ public class AutoWalker {
         targetPlayer=null;
         Minecraft.getMinecraft().thePlayer.movementInput=new MovementInputFromOptions(Minecraft.getMinecraft().gameSettings);
         currentPath=null;
+    }
+    public static BlockPos getPlayerBlockPos(EntityPlayer player){
+        BlockPos blockpos = new BlockPos(player.posX, player.getEntityBoundingBox().minY, player.posZ);
+        return blockpos;
     }
 
     @SubscribeEvent
@@ -130,10 +134,10 @@ public class AutoWalker {
             return;
         }
 
-        BlockPos currentPlayerPos = player.getPosition().down();
-        BlockPos targetPos = targetPlayer.getPosition().down();
+        BlockPos currentPlayerPos = getPlayerBlockPos(player);
+        BlockPos targetPos = getPlayerBlockPos(targetPlayer);
 
-        // 计算与目标玩家的距离
+        /*// 计算与目标玩家的距离
         double distance = player.getDistanceSqToEntity(targetPlayer);
 
         // 如果距离足够近（2格以内），停止移动
@@ -141,7 +145,7 @@ public class AutoWalker {
             currentPath=null;
             needsJump=false;
             return;
-        }
+        }*/
 
         // 每隔一定间隔更新路径
         followUpdateCounter++;
