@@ -13,6 +13,9 @@ public class PathFinder {
         MinecraftForge.EVENT_BUS.register(this);
     }
     public static LinkedList<BlockPos> findPath(World world, BlockPos start, BlockPos end) {
+        if (isCollisionBlock(world, end)) {
+            return new LinkedList<>();
+        }
         // 使用优先级队列实现标准 A* 算法
         PriorityQueue<PathNode> openList = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fCost));
         HashMap<BlockPos, PathNode> allNodes = new HashMap<>();
@@ -23,10 +26,10 @@ public class PathFinder {
         openList.add(startNode);
         allNodes.put(start, startNode);
 
-        int maxIterations = 20000; // 增加最大迭代次数
+        int maxIterations = 200000; // 增加最大迭代次数
         int iterations = 0;
 
-        while (!openList.isEmpty() && iterations < maxIterations) {
+        while (!openList.isEmpty()) {
             iterations++;
 
             // 取出 fCost 最小的节点
@@ -34,6 +37,9 @@ public class PathFinder {
 
             // 到达终点
             if (current.pos.equals(end)) {
+                return reconstructPath(current);
+            }
+            if(!(iterations < maxIterations)){
                 return reconstructPath(current);
             }
 
