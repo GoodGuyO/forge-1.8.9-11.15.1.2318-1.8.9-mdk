@@ -15,7 +15,9 @@ import java.util.LinkedList;
 
 public class AutoWalker {
     public static AutoWalker autoWalker=null;
-    boolean isWalking=false;
+    // 当前目标角度
+    private float[] currentTargetAngles = null;
+    private boolean isWalking=false;
     boolean needsJump=false;
     LinkedList<BlockPos> currentPath=null;
     public BlockPos target=null;
@@ -35,14 +37,14 @@ public class AutoWalker {
         if(isFollowing){
             stopFollowing();
         }
-        isWalking=true;
+        setWalking(true);
         target=targetIn;
         Minecraft.getMinecraft().thePlayer.movementInput=new ModMovementInput(this);
         currentPath=PathFinder.findPath(Minecraft.getMinecraft().theWorld, Minecraft.getMinecraft().thePlayer.getPosition().down(), target);
     }
 
     public void stopWalking(){
-        isWalking=false;
+        setWalking(false);
         target=null;
         Minecraft.getMinecraft().thePlayer.movementInput=new MovementInputFromOptions(Minecraft.getMinecraft().gameSettings);
         currentPath=null;
@@ -54,7 +56,7 @@ public class AutoWalker {
             return;
         }
         // 如果正在行走，先停止行走
-        if(isWalking){
+        if(isWalking()){
             stopWalking();
         }
         isFollowing=true;
@@ -97,7 +99,7 @@ public class AutoWalker {
         }
 
         // 原有的寻路逻辑
-        if(!isWalking||target==null){
+        if(!isWalking() ||target==null){
             return;
         }
 
@@ -132,7 +134,10 @@ public class AutoWalker {
         if (currentIndex >= 0 && currentIndex < currentPath.size() - 1) {
             BlockPos next = currentPath.get(currentIndex + 1);
             // 转向下一个方块
-            player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, next));
+            float targetYaw = getYawRotToBLockPos(player, next);
+            float targetPitch = 0.0f;
+            setTargetAngles(targetYaw, targetPitch);
+            //player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, next));
 
             // 判断是否需要跳跃（下一个方块比当前高）
             needsJump = next.getY() > blockpos.getY();
@@ -143,7 +148,7 @@ public class AutoWalker {
         stopAll();
     }
     private void stopAll(){
-        if(isWalking){
+        if(isWalking()){
             stopWalking();
         }
         if(isFollowing){
@@ -180,7 +185,11 @@ public class AutoWalker {
 
             // 如果找不到路径，尝试直接朝目标玩家方向移动
             if(currentPath==null || currentPath.isEmpty()){
-                player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, targetPos));
+                // 转向下一个方块
+                float targetYaw = getYawRotToBLockPos(player, targetPos);
+                float targetPitch = 0.0f;
+                setTargetAngles(targetYaw, targetPitch);
+                //player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, targetPos));
                 needsJump = targetPos.getY() > currentPlayerPos.getY();
                 return;
             }
@@ -194,7 +203,10 @@ public class AutoWalker {
             if (currentIndex >= 0 && currentIndex < currentPath.size() - 1) {
                 BlockPos next = currentPath.get(currentIndex + 1);
                 // 转向下一个方块
-                player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, next));
+                float targetYaw = getYawRotToBLockPos(player, next);
+                float targetPitch = 0.0f;
+                setTargetAngles(targetYaw, targetPitch);
+                //player.rotationYaw = smoothRotation(player.rotationYaw, getYawRotToBLockPos(player, next));
 
                 // 判断是否需要跳跃
                 needsJump = next.getY() > blockpos.getY();
@@ -218,27 +230,28 @@ public class AutoWalker {
 
         return net.minecraft.util.MathHelper.wrapAngleTo180_float((float) yaw);
     }
-    // 平滑转头相关字段
-    private static final float MAX_YAW_CHANGE_PER_TICK = 10.0f; // 每tick最大转向角度
+
+    public boolean isWalking() {
+        return isWalking;
+    }
+
+    public void setWalking(boolean walking) {
+        isWalking = walking;
+    }
+    /**
+     * 获取当前的目标角度 [yaw, pitch]
+     * @return 角度数组，如果为空则返回 null
+     */
+    public float[] getTargetAngles() {
+        return currentTargetAngles;
+    }
 
     /**
-     * 平滑旋转：将当前角度逐步转向目标角度
-     * @param currentYaw 当前角度
-     * @param targetYaw 目标角度
-     * @return 插值后的角度
+     * 设置目标角度
+     * @param yaw 偏航角
+     * @param pitch 俯仰角
      */
-    private float smoothRotation(float currentYaw, float targetYaw) {
-        // 计算角度差（考虑-180到180的环绕）
-        float angleDiff = net.minecraft.util.MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
-
-        // 限制每次转动的最大角度
-        if (angleDiff > MAX_YAW_CHANGE_PER_TICK) {
-            angleDiff = MAX_YAW_CHANGE_PER_TICK;
-        } else if (angleDiff < -MAX_YAW_CHANGE_PER_TICK) {
-            angleDiff = -MAX_YAW_CHANGE_PER_TICK;
-        }
-
-        // 返回新的角度
-        return net.minecraft.util.MathHelper.wrapAngleTo180_float(currentYaw + angleDiff);
+    public void setTargetAngles(float yaw, float pitch) {
+        this.currentTargetAngles = new float[]{yaw, pitch};
     }
 }

@@ -17,7 +17,7 @@ public class ModMovementInput extends MovementInput {
         this.moveStrafe = 0.0F;
         this.moveForward = 0.0F;
 
-        if (this.gameSettings.keyBindForward.isKeyDown()||this.autoWalker.isWalking||this.autoWalker.isFollowing)
+        if (this.gameSettings.keyBindForward.isKeyDown()|| this.autoWalker.isWalking() ||this.autoWalker.isFollowing)
         {
             ++this.moveForward;
         }

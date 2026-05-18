@@ -7,6 +7,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -17,6 +18,19 @@ import java.util.regex.Pattern;
 
 @Mixin(EntityPlayerSP.class)
 public class MixinEntityPlayerSP {
+    @Inject(
+            method = "onUpdateWalkingPlayer",
+            at = @At("TAIL")
+    )
+    private void onUpdateWalkingPlayerTail(CallbackInfo ci) {
+        if (AutoWalker.autoWalker != null && AutoWalker.autoWalker.isWalking()) {
+            float[] angles = AutoWalker.autoWalker.getTargetAngles();
+            if (angles != null) {
+                ((EntityPlayerSP)(Object)this).rotationYaw = smoothRotation(((EntityPlayerSP)(Object)this).rotationYaw, angles[0]);
+                ((EntityPlayerSP)(Object)this).rotationPitch = angles[1];
+            }
+        }
+    }
 
     @Redirect(
             method = "onLivingUpdate",
@@ -138,5 +152,29 @@ public class MixinEntityPlayerSP {
 
         System.err.println("未在字符串中找到有效的坐标: " + input);
         return null;
+    }
+
+    // 平滑转头相关字段
+    private static final float MAX_YAW_CHANGE_PER_TICK = 30.0f; // 每tick最大转向角度
+
+    /**
+     * 平滑旋转：将当前角度逐步转向目标角度
+     * @param currentYaw 当前角度
+     * @param targetYaw 目标角度
+     * @return 插值后的角度
+     */
+    private float smoothRotation(float currentYaw, float targetYaw) {
+        // 计算角度差（考虑-180到180的环绕）
+        float angleDiff = net.minecraft.util.MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
+
+        // 限制每次转动的最大角度
+        if (angleDiff > MAX_YAW_CHANGE_PER_TICK) {
+            angleDiff = MAX_YAW_CHANGE_PER_TICK;
+        } else if (angleDiff < -MAX_YAW_CHANGE_PER_TICK) {
+            angleDiff = -MAX_YAW_CHANGE_PER_TICK;
+        }
+
+        // 返回新的角度
+        return net.minecraft.util.MathHelper.wrapAngleTo180_float(currentYaw + angleDiff);
     }
 }
