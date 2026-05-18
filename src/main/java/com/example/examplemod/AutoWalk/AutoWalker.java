@@ -111,9 +111,17 @@ public class AutoWalker {
 
         // 如果当前路径不包含当前位置或路径为空，重新计算路径
         if (currentPath == null || currentPath.isEmpty() || !currentPath.contains(blockpos)) {
-            currentPath = PathFinder.findPath(mc.theWorld, blockpos, target);
+            BlockPos startPos = blockpos;
+
+            if (!PathFinder.isStandable(mc.theWorld, startPos)) {
+                System.out.println("[AutoWalker] 无法找到可行的起点位置");
+                stopWalking();
+                return;
+            }
+
+            currentPath = PathFinder.findPath(mc.theWorld, startPos, target);
             if (currentPath == null || currentPath.isEmpty()) {
-                // 无法找到路径，停止行走
+                System.out.println("[AutoWalker] 无法找到从 " + startPos + " 到 " + target + " 的路径");
                 stopWalking();
                 return;
             }

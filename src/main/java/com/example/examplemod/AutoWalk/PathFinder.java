@@ -1,5 +1,6 @@
 package com.example.examplemod.AutoWalk;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
 import net.minecraft.world.World;
@@ -13,39 +14,49 @@ public class PathFinder {
         MinecraftForge.EVENT_BUS.register(this);
     }
     public static LinkedList<BlockPos> findPath(World world, BlockPos start, BlockPos end) {
-        if (isCollisionBlock(world, end)) {
+        if (!isWalkable(world, end)) {
             return new LinkedList<>();
         }
-        // 使用优先级队列实现标准 A* 算法
+
+        if (start.equals(end)) {
+            LinkedList<BlockPos> path = new LinkedList<>();
+            path.add(start);
+            return path;
+        }
+
+        if (!isStandable(world, start)) {
+            return new LinkedList<>();
+        }
+
         PriorityQueue<PathNode> openList = new PriorityQueue<>(Comparator.comparingDouble(n -> n.fCost));
+        HashSet<BlockPos> openSet = new HashSet<>();
         HashMap<BlockPos, PathNode> allNodes = new HashMap<>();
         HashSet<BlockPos> closedSet = new HashSet<>();
 
-        // 创建起始节点
         PathNode startNode = new PathNode(start, 0, getHeuristic(start, end));
         openList.add(startNode);
+        openSet.add(start);
         allNodes.put(start, startNode);
 
-        int maxIterations = 200000; // 增加最大迭代次数
+        int maxIterations = 200000;
         int iterations = 0;
 
         while (!openList.isEmpty()) {
             iterations++;
 
-            // 取出 fCost 最小的节点
-            PathNode current = openList.poll();
-
-            // 到达终点
-            if (current.pos.equals(end)) {
-                return reconstructPath(current);
+            if (iterations > maxIterations) {
+                break;
             }
-            if(!(iterations < maxIterations)){
+
+            PathNode current = openList.poll();
+            openSet.remove(current.pos);
+
+            if (current.pos.equals(end)) {
                 return reconstructPath(current);
             }
 
             closedSet.add(current.pos);
 
-            // 获取邻居节点
             HashSet<BlockPos> neighbors = getNeighbors(world, current.pos);
 
             for (BlockPos neighborPos : neighbors) {
@@ -53,19 +64,16 @@ public class PathFinder {
                     continue;
                 }
 
-                // 计算从起点经过当前节点到邻居的代价
                 double tentativeGCost = current.gCost + getMovementCost(current.pos, neighborPos);
 
                 PathNode neighborNode = allNodes.get(neighborPos);
                 boolean isNewPath = false;
 
                 if (neighborNode == null) {
-                    // 新节点
                     neighborNode = new PathNode(neighborPos, Double.MAX_VALUE, getHeuristic(neighborPos, end));
                     allNodes.put(neighborPos, neighborNode);
                     isNewPath = true;
                 } else if (tentativeGCost < neighborNode.gCost) {
-                    // 找到更好的路径
                     isNewPath = true;
                 }
 
@@ -74,14 +82,14 @@ public class PathFinder {
                     neighborNode.fCost = tentativeGCost + neighborNode.hCost;
                     neighborNode.parent = current;
 
-                    if (!openList.contains(neighborNode)) {
+                    if (!openSet.contains(neighborPos)) {
                         openList.add(neighborNode);
+                        openSet.add(neighborPos);
                     }
                 }
             }
         }
 
-        // 没有找到路径
         return new LinkedList<>();
     }
     public static HashSet<BlockPos> getNeighbors(World world, BlockPos pos){
@@ -104,7 +112,7 @@ public class PathFinder {
                 pos.west().north(), pos.west().south()
         };
         for (BlockPos neighbor : directions) {
-            if(isWalkable(world, neighbor.up())&&!isStandableBlock(world, pos.down())){
+            if(isWalkable(world, neighbor.up())&&isCollisionBlock(world, pos.down())&&isStandable(world, pos.up())){
                 ret.add(pos.up());
                 break;
             }
@@ -118,18 +126,6 @@ public class PathFinder {
             // 检查同一高度是否可行走（需要有支撑）
             if (isWalkable(world, neighbor)) {
                 ret.add(neighbor);
-            }
-
-            // 检查是否可以向上移动（向上一格）
-            if(!isStandableBlock(world, pos.down())){
-                if (isWalkable(world, neighbor.up()) && isStandable(world, pos.up())) {
-                    ret.add(neighbor.up());
-                }
-            }
-
-            // 检查是否可以向下移动（向下一格）
-            if (isStandable(world, neighbor.down())) {
-                ret.add(neighbor.down());
             }
         }
 
@@ -159,55 +155,33 @@ public class PathFinder {
                     isWalkable(world, adj1) && isWalkable(world, adj2) &&
                     isWalkable(world, diagonal)) {
                 ret.add(diagonal);
-
-                // 对角线也可以向上移动
-                if(!isStandableBlock(world, pos.down())){
-                    if (isWalkable(world, diagonal.up()) && isStandable(world, pos.up())) {
-                        ret.add(diagonal.up());
-                    }
-                }
-                // 对角线也可以向下移动
-                if (isStandable(world, diagonal.down())) {
-                    ret.add(diagonal.down());
-                }
             }
         }
 
         return ret;
     }
     public static boolean isCollisionBlock(World world ,BlockPos pos){
-        if (world.getBlockState(pos).getBlock()!=Blocks.air
-                ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))!=null) {
-            return true;
-        }else{
+        if(world.getBlockState(pos).getBlock()==Blocks.air
+        ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))==null){
             return false;
+        }else{
+            return true;
         }
     }
     public static boolean isStandableBlock(World world, BlockPos pos){
-        if (world.getBlockState(pos).getBlock()!=Blocks.air
-                ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))!=null) {
-            return false;
-        }else{
-            return true;
-        }
+        return !isCollisionBlock(world, pos);
     }
     /**
      * 检查位置是否可以站立（需要有2格高空间）
      */
     public static boolean isStandable(World world, BlockPos pos){
         // 检查当前位置是否为空气
-        if (world.getBlockState(pos).getBlock()!=Blocks.air
-                ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))!=null) {
+        if(!isStandableBlock(world, pos)){
             return false;
         }
 
         // 检查上方是否为空气（玩家需要2格高的空间）
-        if (world.getBlockState(pos.up()).getBlock()!=Blocks.air
-                ||world.getBlockState(pos.up()).getBlock().getCollisionBoundingBox(world, pos.up(), world.getBlockState(pos.up()))!=null) {
-            return false;
-        }
-
-        return true;
+        return isStandableBlock(world, pos.up());
     }
 
     /**
