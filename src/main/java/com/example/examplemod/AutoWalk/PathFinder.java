@@ -1,5 +1,8 @@
 package com.example.examplemod.AutoWalk;
 
+import net.minecraft.block.BlockCarpet;
+import net.minecraft.block.BlockSlab;
+import net.minecraft.block.BlockStairs;
 import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
@@ -168,9 +171,19 @@ public class PathFinder {
         //System.out.println(world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)));
         if(world.getBlockState(pos).getBlock()==Blocks.air
         ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))==null
-        ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).maxY==world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).minY){
+        ||(world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).maxY==world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).minY
+        &&world.getBlockState(pos).getBlock()!=Blocks.water&&world.getBlockState(pos).getBlock()!=Blocks.flowing_water)){
             return false;
         }else{
+            if (world.getBlockState(pos).getBlock() instanceof BlockStairs) {
+                return false;
+            }
+            if (world.getBlockState(pos).getBlock() instanceof BlockSlab) {
+                return false;
+            }
+            if (world.getBlockState(pos).getBlock() instanceof BlockCarpet) {
+                return false;
+            }
             return true;
         }
     }
