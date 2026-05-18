@@ -38,7 +38,7 @@ public class PathFinder {
         openSet.add(start);
         allNodes.put(start, startNode);
 
-        int maxIterations = 200000;
+        int maxIterations = 500000;
         int iterations = 0;
 
         while (!openList.isEmpty()) {
@@ -105,14 +105,8 @@ public class PathFinder {
                 pos.east().north(), pos.east().south(),
                 pos.west().north(), pos.west().south()
         };
-
-        BlockPos[] allDirections = {
-                pos.east(), pos.west(), pos.north(), pos.south(),
-                pos.east().north(), pos.east().south(),
-                pos.west().north(), pos.west().south()
-        };
         for (BlockPos neighbor : directions) {
-            if(isWalkable(world, neighbor.up())&&isCollisionBlock(world, pos.down())&&isStandable(world, pos.up())){
+            if(isWalkable(world, neighbor.up())&&isWalkable(world, pos)&&isStandable(world, pos.up())){
                 ret.add(pos.up());
                 break;
             }
@@ -124,8 +118,12 @@ public class PathFinder {
         // 处理基本方向
         for (BlockPos neighbor : directions) {
             // 检查同一高度是否可行走（需要有支撑）
-            if (isWalkable(world, neighbor)) {
+            if(isWalkable(world, neighbor)){
                 ret.add(neighbor);
+            }else{
+                if(isStandable(world, neighbor)&&isWalkable(world, pos)){
+                    ret.add(neighbor);
+                }
             }
         }
 
@@ -152,17 +150,25 @@ public class PathFinder {
 
             // 只有当两个相邻方向都可行走时，才允许对角线移动
             if (adj1 != null && adj2 != null &&
-                    isWalkable(world, adj1) && isWalkable(world, adj2) &&
-                    isWalkable(world, diagonal)) {
-                ret.add(diagonal);
+                    isStandable(world, adj1) && isStandable(world, adj2) &&
+                    isStandable(world, diagonal)) {
+                if(isWalkable(world, diagonal)){
+                    ret.add(diagonal);
+                }else{
+                    if (isWalkable(world, pos)) {
+                        ret.add(diagonal);
+                    }
+                }
             }
         }
 
         return ret;
     }
     public static boolean isCollisionBlock(World world ,BlockPos pos){
+        //System.out.println(world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)));
         if(world.getBlockState(pos).getBlock()==Blocks.air
-        ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))==null){
+        ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos))==null
+        ||world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).maxY==world.getBlockState(pos).getBlock().getCollisionBoundingBox(world, pos, world.getBlockState(pos)).minY){
             return false;
         }else{
             return true;
